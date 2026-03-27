@@ -17,15 +17,17 @@ const authenticate = async (req, res, next) => {
     if (rows[0].status === 'deactivated') return res.status(403).json({ error: 'Account deactivated' });
     req.user = rows[0];
     next();
-  } catch {
-    res.status(401).json({ error: 'Invalid or expired token' });
+  } catch (err) {
+    if (err.name === 'TokenExpiredError') return res.status(401).json({ error: 'Token expired, please login again' });
+    res.status(401).json({ error: 'Invalid token' });
   }
 };
 
 // Role-based access control
 const authorize = (...roles) => (req, res, next) => {
+  if (!req.user) return res.status(401).json({ error: 'Not authenticated' });
   if (!roles.includes(req.user.role)) {
-    return res.status(403).json({ error: 'Access denied' });
+    return res.status(403).json({ error: `Access denied. Required role: ${roles.join(' or ')}` });
   }
   next();
 };
