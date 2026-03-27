@@ -11,17 +11,22 @@ router.post('/register', async (req, res) => {
   const { name, email, password, university } = req.body;
   if (!name || !email || !password) return res.status(400).json({ error: 'Name, email and password are required' });
 
+  const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+  if (!emailRegex.test(email)) return res.status(400).json({ error: 'Invalid email format' });
+  if (password.length < 6) return res.status(400).json({ error: 'Password must be at least 6 characters' });
+
   try {
-    const exists = await pool.query('SELECT id FROM users WHERE email = $1', [email]);
+    const exists = await pool.query('SELECT id FROM users WHERE email = $1', [email.toLowerCase().trim()]);
     if (exists.rows.length) return res.status(409).json({ error: 'Email already registered' });
 
     const hashed = await bcrypt.hash(password, 10);
     const { rows } = await pool.query(
       `INSERT INTO users (name, email, password, university) VALUES ($1,$2,$3,$4)
        RETURNING id, name, email, role, status, university`,
-      [name, email, hashed, university || null]
+      [name.trim(), email.toLowerCase().trim(), hashed, university?.trim() || null]
     );
     const user = rows[0];
+    console.log(`New user registered: ${user.email} (${user.role})`);
     res.status(201).json({ token: sign(user.id), user });
   } catch (err) {
     res.status(500).json({ error: err.message });
