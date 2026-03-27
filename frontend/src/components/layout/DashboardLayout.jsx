@@ -248,11 +248,14 @@ const DashboardLayout = () => {
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [notifications] = useState(3);
 
-  const config = MENU[role] || MENU.participant;
+  const config   = MENU[role] || MENU.participant;
+  const userName = localStorage.getItem('userName') || (role + ' User');
 
   const handleLogout = () => {
     localStorage.removeItem('userRole');
-    navigate('/');
+    localStorage.removeItem('token');
+    localStorage.removeItem('userName');
+    navigate('/login');
   };
 
   const isActive = (path) => {
@@ -330,8 +333,8 @@ const DashboardLayout = () => {
             {role.charAt(0).toUpperCase()}
           </div>
           <div className="flex-1 min-w-0">
-            <p className="text-sm font-bold text-white capitalize truncate">{role} User</p>
-            <p className="text-xs text-slate-500 font-medium truncate">{role}@eventhub.com</p>
+            <p className="text-sm font-bold text-white capitalize truncate">{userName}</p>
+            <p className="text-xs text-slate-500 font-medium truncate capitalize">{role}</p>
           </div>
           <button
             onClick={handleLogout}

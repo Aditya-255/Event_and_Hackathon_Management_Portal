@@ -1,66 +1,70 @@
-import React, { useState } from 'react';
-import { Settings, Shield, Bell, Globe, Database, Trash2, Download, RefreshCw, Save } from 'lucide-react';
+import React, { useState, useEffect } from 'react';
+import { Settings, Shield, Bell, Globe, Database, Trash2, Download, RefreshCw, Save, Loader2 } from 'lucide-react';
 import { motion } from 'framer-motion';
+import { adminAPI } from '../../lib/api';
 
 const Toggle = ({ checked, onChange }) => (
   <label className="relative inline-flex items-center cursor-pointer">
-    <input type="checkbox" className="sr-only peer" checked={checked} onChange={onChange} />
-    <div className="w-11 h-6 bg-slate-200 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-sky-500"></div>
+    <input type="checkbox" className="sr-only peer" checked={!!checked} onChange={onChange} />
+    <div className="w-11 h-6 bg-slate-200 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-sky-500" />
   </label>
 );
 
+const DEFAULT = {
+  maintenance_mode: false, auto_approve_organizers: false,
+  email_notifications: true, public_leaderboard: true,
+  allow_registrations: true, two_factor_auth: false,
+};
+
 export default function AdminSettings() {
-  const [settings, setSettings] = useState({
-    maintenance: false,
-    autoApprove: true,
-    emailNotifs: true,
-    publicLeaderboard: true,
-    allowRegistration: true,
-    twoFactor: false,
-  });
+  const [settings, setSettings] = useState(DEFAULT);
+  const [loading,  setLoading]  = useState(true);
+  const [saving,   setSaving]   = useState(false);
+  const [saved,    setSaved]    = useState(false);
+
+  useEffect(() => {
+    adminAPI.getSettings()
+      .then(({ data }) => setSettings({ ...DEFAULT, ...data }))
+      .catch(() => {})
+      .finally(() => setLoading(false));
+  }, []);
 
   const toggle = (key) => setSettings(s => ({ ...s, [key]: !s[key] }));
 
+  const handleSave = async () => {
+    setSaving(true);
+    try {
+      await adminAPI.saveSettings(settings);
+      setSaved(true);
+      setTimeout(() => setSaved(false), 2500);
+    } catch (e) { alert(e.response?.data?.error || 'Save failed'); }
+    finally { setSaving(false); }
+  };
+
   const sections = [
     {
-      title: 'General Configuration',
-      icon: Settings,
-      color: 'text-sky-500',
-      bg: 'bg-sky-50',
+      title: 'General Configuration', icon: Settings, color: 'text-sky-500', bg: 'bg-sky-50',
       items: [
-        { key: 'maintenance', label: 'Maintenance Mode', desc: 'Temporarily disable public access to the platform' },
-        { key: 'allowRegistration', label: 'Allow New Registrations', desc: 'Enable or disable new user sign-ups' },
-        { key: 'autoApprove', label: 'Auto-Approve Organizers', desc: 'Automatically verify new organizer accounts' },
+        { key: 'maintenance_mode',        label: 'Maintenance Mode',        desc: 'Temporarily disable public access to the platform' },
+        { key: 'allow_registrations',     label: 'Allow New Registrations', desc: 'Enable or disable new user sign-ups' },
+        { key: 'auto_approve_organizers', label: 'Auto-Approve Organizers', desc: 'Automatically verify new organizer accounts' },
       ]
     },
     {
-      title: 'Notifications',
-      icon: Bell,
-      color: 'text-violet-500',
-      bg: 'bg-violet-50',
-      items: [
-        { key: 'emailNotifs', label: 'Email Notifications', desc: 'Send automatic registration and event emails' },
-      ]
+      title: 'Notifications', icon: Bell, color: 'text-violet-500', bg: 'bg-violet-50',
+      items: [{ key: 'email_notifications', label: 'Email Notifications', desc: 'Send automatic registration and event emails' }]
     },
     {
-      title: 'Privacy & Visibility',
-      icon: Globe,
-      color: 'text-emerald-500',
-      bg: 'bg-emerald-50',
-      items: [
-        { key: 'publicLeaderboard', label: 'Public Leaderboard', desc: 'Allow non-logged-in users to view leaderboards' },
-      ]
+      title: 'Privacy & Visibility', icon: Globe, color: 'text-emerald-500', bg: 'bg-emerald-50',
+      items: [{ key: 'public_leaderboard', label: 'Public Leaderboard', desc: 'Allow non-logged-in users to view leaderboards' }]
     },
     {
-      title: 'Security',
-      icon: Shield,
-      color: 'text-rose-500',
-      bg: 'bg-rose-50',
-      items: [
-        { key: 'twoFactor', label: 'Two-Factor Authentication', desc: 'Require 2FA for admin accounts' },
-      ]
+      title: 'Security', icon: Shield, color: 'text-rose-500', bg: 'bg-rose-50',
+      items: [{ key: 'two_factor_auth', label: 'Two-Factor Authentication', desc: 'Require 2FA for admin accounts' }]
     },
   ];
+
+  if (loading) return <div className="flex items-center justify-center py-20"><Loader2 size={32} className="animate-spin text-sky-500" /></div>;
 
   return (
     <div className="space-y-6 max-w-3xl">
@@ -109,16 +113,16 @@ export default function AdminSettings() {
         <div className="p-5 space-y-3">
           <p className="text-sm font-medium text-slate-500 mb-4">These actions are irreversible. Proceed with caution.</p>
           {[
-            { icon: Download, label: 'Download Database Backup', desc: 'Export full platform data', color: 'hover:bg-sky-50 hover:border-sky-200 hover:text-sky-600' },
-            { icon: RefreshCw, label: 'Force Sign-out All Users', desc: 'Terminate all active sessions', color: 'hover:bg-amber-50 hover:border-amber-200 hover:text-amber-600' },
-            { icon: Trash2, label: 'Purge Old Event Data', desc: 'Permanently delete archived events', color: 'hover:bg-red-50 hover:border-red-200 hover:text-red-600 text-red-500 border-red-200' },
+            { icon: Download,  label: 'Download Database Backup', desc: 'Export full platform data',           color: 'hover:bg-sky-50 hover:border-sky-200 hover:text-sky-600' },
+            { icon: RefreshCw, label: 'Force Sign-out All Users', desc: 'Terminate all active sessions',       color: 'hover:bg-amber-50 hover:border-amber-200 hover:text-amber-600' },
+            { icon: Trash2,    label: 'Purge Old Event Data',     desc: 'Permanently delete archived events',  color: 'hover:bg-red-50 hover:border-red-200 hover:text-red-600 text-red-500 border-red-200' },
           ].map(action => {
             const Icon = action.icon;
             return (
               <button key={action.label}
                 className={`w-full flex items-center gap-4 p-4 border border-slate-200 rounded-xl transition-all text-left group ${action.color}`}
               >
-                <div className="w-9 h-9 rounded-lg bg-slate-100 group-hover:bg-current/10 flex items-center justify-center shrink-0 transition-colors">
+                <div className="w-9 h-9 rounded-lg bg-slate-100 flex items-center justify-center shrink-0 transition-colors">
                   <Icon size={16} className="text-slate-500 group-hover:text-current" />
                 </div>
                 <div>
@@ -132,8 +136,11 @@ export default function AdminSettings() {
       </motion.div>
 
       <div className="flex justify-end">
-        <button className="flex items-center gap-2 px-6 py-3 bg-gradient-to-r from-sky-500 to-violet-600 text-white font-bold rounded-xl shadow-lg shadow-sky-500/25 hover:shadow-sky-500/40 hover:-translate-y-0.5 transition-all text-sm">
-          <Save size={15} /> Save All Settings
+        <button onClick={handleSave} disabled={saving}
+          className="flex items-center gap-2 px-6 py-3 bg-gradient-to-r from-sky-500 to-violet-600 text-white font-bold rounded-xl shadow-lg shadow-sky-500/25 hover:shadow-sky-500/40 hover:-translate-y-0.5 transition-all text-sm disabled:opacity-60"
+        >
+          {saving ? <Loader2 size={15} className="animate-spin" /> : <Save size={15} />}
+          {saved ? 'Saved!' : saving ? 'Saving...' : 'Save All Settings'}
         </button>
       </div>
     </div>

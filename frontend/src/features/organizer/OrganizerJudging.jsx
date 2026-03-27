@@ -1,61 +1,79 @@
-import React, { useState } from 'react';
-import { Star, FileText, CheckCircle, Search, AlertCircle, ChevronRight, Award } from 'lucide-react';
-import { jsPDF } from 'jspdf';
+import React, { useState, useEffect } from "react";
+import { Star, FileText, CheckCircle, Search, AlertCircle, ChevronRight, Award } from "lucide-react";
+import { jsPDF } from "jspdf";
+import { abstractsAPI, scoresAPI } from "../../lib/api";
 
-const submissions = [
-  { id: 1, team: 'Innovators Hub', project: 'EcoTrack', category: 'Sustainability', status: 'Pending', score: null },
-  { id: 2, team: 'Code Crafters', project: 'EduSync', category: 'EdTech', status: 'Evaluated', score: 8.5 },
-  { id: 3, team: 'Data Miners', project: 'CampusAI', category: 'Open', status: 'Pending', score: null },
-  { id: 4, team: 'Campus Fix', project: 'FixIt App', category: 'Sustainability', status: 'Evaluated', score: 7.8 },
-];
-
-const categories = [
-  { name: 'Innovation & Originality', weight: 30 },
-  { name: 'Technical Complexity', weight: 30 },
-  { name: 'Business Potential', weight: 20 },
-  { name: 'Presentation Quality', weight: 20 },
+const RUBRIC = [
+  { name: "Innovation & Originality", weight: 30 },
+  { name: "Technical Complexity",     weight: 30 },
+  { name: "Business Potential",       weight: 20 },
+  { name: "Presentation Quality",     weight: 20 },
 ];
 
 export default function OrganizerJudging() {
-  const [list, setList] = useState(submissions);
+  const [list,     setList]     = useState([]);
+  const [loading,  setLoading]  = useState(true);
   const [selected, setSelected] = useState(null);
-  const [search, setSearch] = useState('');
-  const [scores, setScores] = useState({});
+  const [search,   setSearch]   = useState("");
+  const [scores,   setScores]   = useState({});
+  const [saving,   setSaving]   = useState(false);
+
+  useEffect(() => {
+    abstractsAPI.getAll()
+      .then(({ data }) => setList(data || []))
+      .catch(() => setList([]))
+      .finally(() => setLoading(false));
+  }, []);
 
   const filtered = list.filter(s =>
-    s.team.toLowerCase().includes(search.toLowerCase()) ||
-    s.project.toLowerCase().includes(search.toLowerCase())
+    s.team_name?.toLowerCase().includes(search.toLowerCase()) ||
+    s.project_name?.toLowerCase().includes(search.toLowerCase())
   );
 
-  const computedScore = categories.reduce((acc, cat) => {
+  const computedScore = RUBRIC.reduce((acc, cat) => {
     const s = parseFloat(scores[cat.name] || 0);
     return acc + (s * cat.weight) / 100;
   }, 0);
 
-  const handleSubmit = () => {
-    setList(list.map(s => s.id === selected.id ? { ...s, status: 'Evaluated', score: parseFloat(computedScore.toFixed(1)) } : s));
-    setSelected(null);
-    setScores({});
+  const handleSubmit = async () => {
+    if (!selected) return;
+    setSaving(true);
+    try {
+      await scoresAPI.submit({
+        abstract_id:        selected.id,
+        team_id:            selected.team_id,
+        innovation_score:   parseFloat(scores[RUBRIC[0].name] || 0),
+        technical_score:    parseFloat(scores[RUBRIC[1].name] || 0),
+        business_score:     parseFloat(scores[RUBRIC[2].name] || 0),
+        presentation_score: parseFloat(scores[RUBRIC[3].name] || 0),
+        comments: "",
+      });
+      setList(list.map(s => s.id === selected.id ? { ...s, status: "Evaluated" } : s));
+      setSelected(null);
+      setScores({});
+    } catch (e) {
+      alert(e.response?.data?.error || "Submit failed");
+    } finally { setSaving(false); }
   };
 
   const handleDownloadPDF = () => {
     if (!selected) return;
     const doc = new jsPDF();
     doc.setFillColor(79, 70, 229);
-    doc.rect(0, 0, 210, 40, 'F');
+    doc.rect(0, 0, 210, 40, "F");
     doc.setTextColor(255, 255, 255);
-    doc.setFont('helvetica', 'bold');
+    doc.setFont("helvetica", "bold");
     doc.setFontSize(20);
-    doc.text('EventHub — Project Abstract', 20, 25);
+    doc.text("EventHub - Project Abstract", 20, 25);
     doc.setTextColor(30, 41, 59);
     doc.setFontSize(16);
-    doc.text(`Team: ${selected.team}`, 20, 55);
+    doc.text("Team: " + (selected.team_name || "-"), 20, 55);
     doc.setFontSize(12);
-    doc.setFont('helvetica', 'normal');
+    doc.setFont("helvetica", "normal");
     doc.setTextColor(100, 116, 139);
-    doc.text(`Project: ${selected.project}`, 20, 68);
-    doc.text(`Category: ${selected.category}`, 20, 78);
-    doc.save(`${selected.team}_Abstract.pdf`);
+    doc.text("Project: " + selected.project_name, 20, 68);
+    doc.text("Category: " + (selected.category || "-"), 20, 78);
+    doc.save((selected.team_name || "abstract") + "_Abstract.pdf");
   };
 
   return (
@@ -65,15 +83,14 @@ export default function OrganizerJudging() {
         <p className="text-slate-500 font-medium text-sm mt-0.5">Evaluate team submissions and assign scores</p>
       </div>
 
-      {/* Stats */}
       <div className="grid grid-cols-3 gap-4">
         {[
-          { label: 'Total Submissions', value: list.length, color: 'from-violet-500 to-purple-600' },
-          { label: 'Evaluated', value: list.filter(s => s.status === 'Evaluated').length, color: 'from-emerald-500 to-teal-500' },
-          { label: 'Pending', value: list.filter(s => s.status === 'Pending').length, color: 'from-amber-500 to-orange-500' },
-        ].map((s, i) => (
+          { label: "Total Submissions", value: list.length,                                        color: "from-violet-500 to-purple-600" },
+          { label: "Evaluated",         value: list.filter(s => s.status === "Evaluated").length,  color: "from-emerald-500 to-teal-500" },
+          { label: "Pending",           value: list.filter(s => s.status === "Pending").length,    color: "from-amber-500 to-orange-500" },
+        ].map(s => (
           <div key={s.label} className="bg-white rounded-2xl p-5 border border-slate-200 shadow-sm">
-            <div className={`w-10 h-10 rounded-xl bg-gradient-to-br ${s.color} flex items-center justify-center mb-3 shadow-md`}>
+            <div className={"w-10 h-10 rounded-xl bg-gradient-to-br " + s.color + " flex items-center justify-center mb-3 shadow-md"}>
               <Award size={18} className="text-white" />
             </div>
             <p className="text-2xl font-black text-slate-900">{s.value}</p>
@@ -83,7 +100,6 @@ export default function OrganizerJudging() {
       </div>
 
       <div className="flex flex-col lg:flex-row gap-6">
-        {/* Sidebar */}
         <div className="w-full lg:w-72 bg-white rounded-2xl border border-slate-200 shadow-sm flex flex-col overflow-hidden">
           <div className="p-4 border-b border-slate-100 bg-slate-50/50">
             <h2 className="font-black text-slate-900 text-sm mb-3">Submissions</h2>
@@ -94,49 +110,50 @@ export default function OrganizerJudging() {
               />
             </div>
           </div>
-          <div className="flex-1 overflow-y-auto p-3 space-y-2">
-            {filtered.map(sub => (
+          <div className="flex-1 overflow-y-auto p-3 space-y-2 max-h-96">
+            {loading ? (
+              <p className="text-center text-slate-400 text-sm py-8">Loading...</p>
+            ) : filtered.length === 0 ? (
+              <p className="text-center text-slate-400 text-sm py-8">No submissions yet.</p>
+            ) : filtered.map(sub => (
               <button key={sub.id} onClick={() => { setSelected(sub); setScores({}); }}
-                className={`w-full text-left p-3.5 rounded-xl border transition-all ${selected?.id === sub.id ? 'border-violet-400 bg-violet-50' : 'border-slate-200 hover:border-slate-300 hover:bg-slate-50'}`}
+                className={"w-full text-left p-3.5 rounded-xl border transition-all " + (selected?.id === sub.id ? "border-violet-400 bg-violet-50" : "border-slate-200 hover:border-slate-300 hover:bg-slate-50")}
               >
                 <div className="flex justify-between items-start mb-1">
-                  <span className="font-bold text-slate-900 text-sm">{sub.team}</span>
-                  {sub.status === 'Evaluated' ? <CheckCircle size={14} className="text-emerald-500" /> : <AlertCircle size={14} className="text-amber-500" />}
+                  <span className="font-bold text-slate-900 text-sm">{sub.team_name || "Unknown"}</span>
+                  {sub.status === "Evaluated" ? <CheckCircle size={14} className="text-emerald-500" /> : <AlertCircle size={14} className="text-amber-500" />}
                 </div>
-                <p className="text-xs font-semibold text-slate-500">{sub.project}</p>
+                <p className="text-xs font-semibold text-slate-500">{sub.project_name}</p>
                 <div className="flex items-center justify-between mt-2">
-                  <span className="text-[10px] font-bold px-2 py-0.5 bg-slate-100 text-slate-500 rounded-md">{sub.category}</span>
-                  {sub.score && <span className="text-xs font-black text-emerald-600">{sub.score}/10</span>}
+                  <span className="text-[10px] font-bold px-2 py-0.5 bg-slate-100 text-slate-500 rounded-md">{sub.category || "Open"}</span>
+                  {sub.score && <span className="text-xs font-black text-emerald-600">{parseFloat(sub.score).toFixed(1)}/10</span>}
                 </div>
               </button>
             ))}
           </div>
         </div>
 
-        {/* Judging Panel */}
         <div className="flex-1 bg-white rounded-2xl border border-slate-200 shadow-sm flex flex-col p-6 min-h-[500px]">
           {selected ? (
-            <>
+            <div className="flex flex-col h-full">
               <div className="flex justify-between items-start border-b border-slate-100 pb-5 mb-5">
                 <div className="flex items-center gap-3">
                   <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-violet-500 to-purple-600 flex items-center justify-center text-white font-black text-lg">
-                    {selected.team.charAt(0)}
+                    {(selected.team_name || "T").charAt(0)}
                   </div>
                   <div>
-                    <h2 className="text-xl font-black text-slate-900">{selected.team}</h2>
-                    <p className="text-sm text-slate-400 font-medium">{selected.project} · <span className="text-violet-500">{selected.category}</span></p>
+                    <h2 className="text-xl font-black text-slate-900">{selected.team_name || "Unknown Team"}</h2>
+                    <p className="text-sm text-slate-400 font-medium">{selected.project_name} � <span className="text-violet-500">{selected.category || "Open"}</span></p>
                   </div>
                 </div>
                 <button onClick={handleDownloadPDF}
                   className="flex items-center gap-2 px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold rounded-xl transition-colors text-sm"
-                >
-                  <FileText size={15} /> Abstract PDF
-                </button>
+                ><FileText size={15} /> Abstract PDF</button>
               </div>
 
               <h3 className="text-sm font-extrabold text-slate-900 mb-4">Evaluation Rubric</h3>
               <div className="flex-1 space-y-3 mb-6">
-                {categories.map((cat) => (
+                {RUBRIC.map(cat => (
                   <div key={cat.name} className="bg-slate-50 border border-slate-200 p-4 rounded-xl">
                     <div className="flex items-center justify-between mb-2">
                       <div>
@@ -144,19 +161,19 @@ export default function OrganizerJudging() {
                         <p className="text-xs text-slate-400 font-medium">Weight: {cat.weight}%</p>
                       </div>
                       <div className="flex items-center gap-2">
-                        <span className="text-xs font-bold text-slate-400">1–10</span>
+                        <span className="text-xs font-bold text-slate-400">1-10</span>
                         <input type="number" min="1" max="10"
-                          value={scores[cat.name] || ''}
+                          value={scores[cat.name] || ""}
                           onChange={e => setScores(prev => ({ ...prev, [cat.name]: e.target.value }))}
                           className="w-16 p-2 text-center font-black border border-slate-200 rounded-xl outline-none focus:border-violet-400 focus:ring-2 focus:ring-violet-500/20 transition-all text-sm"
-                          placeholder="–"
+                          placeholder="-"
                         />
                       </div>
                     </div>
                     {scores[cat.name] && (
                       <div className="w-full h-1.5 bg-slate-200 rounded-full overflow-hidden">
                         <div className="h-full bg-gradient-to-r from-violet-500 to-purple-500 rounded-full transition-all"
-                          style={{ width: `${(scores[cat.name] / 10) * 100}%` }}
+                          style={{ width: (parseFloat(scores[cat.name]) / 10 * 100) + "%" }}
                         />
                       </div>
                     )}
@@ -168,17 +185,17 @@ export default function OrganizerJudging() {
                 <div>
                   <p className="text-xs font-bold text-slate-400">Weighted Score</p>
                   <p className="text-4xl font-black text-slate-900">
-                    {computedScore > 0 ? computedScore.toFixed(1) : '–'}
+                    {computedScore > 0 ? computedScore.toFixed(1) : "-"}
                     <span className="text-lg text-slate-400">/10</span>
                   </p>
                 </div>
-                <button onClick={handleSubmit}
-                  className="flex items-center gap-2 px-7 py-3 bg-gradient-to-r from-violet-500 to-purple-600 text-white font-bold rounded-xl shadow-lg shadow-violet-500/25 hover:shadow-violet-500/40 hover:-translate-y-0.5 transition-all"
+                <button onClick={handleSubmit} disabled={saving || computedScore === 0}
+                  className="flex items-center gap-2 px-7 py-3 bg-gradient-to-r from-violet-500 to-purple-600 text-white font-bold rounded-xl shadow-lg shadow-violet-500/25 hover:shadow-violet-500/40 hover:-translate-y-0.5 transition-all disabled:opacity-60 disabled:cursor-not-allowed"
                 >
-                  Submit Evaluation <ChevronRight size={17} />
+                  {saving ? "Submitting..." : "Submit Evaluation"} <ChevronRight size={17} />
                 </button>
               </div>
-            </>
+            </div>
           ) : (
             <div className="flex flex-col items-center justify-center h-full text-center text-slate-400">
               <div className="w-20 h-20 bg-slate-100 rounded-2xl flex items-center justify-center mb-4">
