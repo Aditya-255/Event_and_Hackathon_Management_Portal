@@ -1,21 +1,72 @@
 import React, { useState } from "react";
 import { Trophy, Mail, Lock, ArrowRight, Info, AlertCircle, Loader2 } from "lucide-react";
 import { Link, useNavigate, useLocation } from "react-router-dom";
-import { motion } from "framer-motion";
 import { authAPI } from "../../lib/api";
+
+const S = {
+  page: { minHeight:"100vh", display:"flex", fontFamily:"Inter,sans-serif" },
+  panel: { flex:1, position:"relative", overflow:"hidden", minHeight:"100vh" },
+  panelImg: { width:"100%", height:"100%", objectFit:"cover", position:"absolute", inset:0 },
+  panelOverlay: { position:"absolute", inset:0, background:"linear-gradient(135deg,rgba(15,23,42,0.93) 0%,rgba(14,116,144,0.5) 50%,rgba(15,23,42,0.8) 100%)" },
+  panelContent: { position:"relative", zIndex:1, display:"flex", flexDirection:"column", justifyContent:"center", padding:"0 56px", height:"100%", color:"white" },
+  badge: { display:"inline-flex", alignItems:"center", gap:8, background:"rgba(255,255,255,0.1)", backdropFilter:"blur(8px)", border:"1px solid rgba(255,255,255,0.2)", padding:"8px 16px", borderRadius:99, fontSize:13, fontWeight:700, marginBottom:32, width:"fit-content" },
+  h2: { fontSize:48, fontWeight:900, lineHeight:1.1, marginBottom:20, letterSpacing:"-0.03em" },
+  gradText: { background:"linear-gradient(135deg,#38bdf8,#a78bfa)", WebkitBackgroundClip:"text", WebkitTextFillColor:"transparent", backgroundClip:"text" },
+  subText: { color:"rgba(203,213,225,0.9)", fontWeight:500, lineHeight:1.7, maxWidth:320, fontSize:16 },
+  statsRow: { display:"flex", gap:32, marginTop:40 },
+  statItem: { textAlign:"center" },
+  statVal: { fontWeight:900, fontSize:18, color:"white" },
+  statLbl: { fontSize:11, color:"#94a3b8", fontWeight:600, marginTop:2 },
+  right: { width:"100%", maxWidth:520, display:"flex", flexDirection:"column", justifyContent:"center", padding:"48px 56px", background:"white", overflowY:"auto" },
+  logo: { display:"flex", alignItems:"center", gap:12, textDecoration:"none", marginBottom:40 },
+  logoIcon: { background:"linear-gradient(135deg,#0ea5e9,#8b5cf6)", padding:10, borderRadius:12, color:"white", display:"flex" },
+  logoText: { fontWeight:900, fontSize:20, color:"#0f172a" },
+  h1: { fontSize:30, fontWeight:900, color:"#0f172a", marginBottom:8, letterSpacing:"-0.02em" },
+  sub: { color:"#64748b", fontWeight:500, marginBottom:32, fontSize:15 },
+  link: { color:"#0ea5e9", fontWeight:700, textDecoration:"none" },
+  demoBox: { background:"#f0f9ff", border:"1px solid #bae6fd", borderRadius:16, padding:16, marginBottom:24, position:"relative", overflow:"hidden" },
+  demoBar: { position:"absolute", top:0, left:0, width:4, height:"100%", background:"#0ea5e9", borderRadius:"4px 0 0 4px" },
+  demoInner: { display:"flex", gap:12, paddingLeft:8 },
+  demoTitle: { fontWeight:700, color:"#0c4a6e", marginBottom:8, fontSize:14 },
+  demoRow: { fontSize:12, fontWeight:500, color:"#075985", marginBottom:4 },
+  errBox: { display:"flex", alignItems:"center", gap:8, background:"#fef2f2", border:"1px solid #fecaca", color:"#dc2626", padding:"12px 16px", borderRadius:12, marginBottom:20, fontSize:14, fontWeight:500 },
+  label: { display:"block", fontSize:13, fontWeight:700, color:"#374151", marginBottom:6 },
+  inputWrap: { position:"relative" },
+  inputIcon: { position:"absolute", left:14, top:"50%", transform:"translateY(-50%)", color:"#94a3b8", pointerEvents:"none" },
+  input: { width:"100%", padding:"12px 14px 12px 42px", border:"1.5px solid #e2e8f0", borderRadius:12, fontSize:14, fontWeight:500, color:"#0f172a", background:"#f8fafc", outline:"none", boxSizing:"border-box", transition:"border-color 0.2s, box-shadow 0.2s" },
+  field: { marginBottom:20 },
+  btn: { width:"100%", display:"flex", justifyContent:"center", alignItems:"center", gap:8, padding:"14px 24px", borderRadius:12, fontWeight:700, fontSize:15, color:"white", background:"linear-gradient(135deg,#0ea5e9,#8b5cf6)", border:"none", cursor:"pointer", boxShadow:"0 4px 20px rgba(14,165,233,0.3)", transition:"all 0.2s", marginTop:8 },
+  divider: { display:"flex", alignItems:"center", gap:12, margin:"20px 0" },
+  divLine: { flex:1, height:1, background:"#e2e8f0" },
+  divText: { fontSize:11, fontWeight:700, color:"#94a3b8", textTransform:"uppercase" },
+  guestBtn: { width:"100%", display:"flex", justifyContent:"center", alignItems:"center", gap:8, padding:"12px 24px", borderRadius:12, fontWeight:700, fontSize:14, color:"#475569", background:"#f8fafc", border:"1.5px solid #e2e8f0", textDecoration:"none", transition:"all 0.2s" },
+};
 
 export default function LoginPage() {
   const nav = useNavigate();
   const loc = useLocation();
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
+  const [focused, setFocused] = useState("");
+  const [fields, setFields] = useState({ email:"", password:"" });
+  const [fieldErrors, setFieldErrors] = useState({});
+
+  const validate = () => {
+    const errs = {};
+    if (!fields.email.trim()) errs.email = "Email is required";
+    else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(fields.email)) errs.email = "Enter a valid email address";
+    if (!fields.password) errs.password = "Password is required";
+    else if (fields.password.length < 6) errs.password = "Password must be at least 6 characters";
+    return errs;
+  };
 
   const submit = async (e) => {
     e.preventDefault();
-    setError(""); setLoading(true);
-    const fd = new FormData(e.target);
+    const errs = validate();
+    if (Object.keys(errs).length) { setFieldErrors(errs); return; }
+    setFieldErrors({}); setError(""); setLoading(true);
     try {
-      const { data } = await authAPI.login({ email: fd.get("email"), password: fd.get("password") });
+      const { data } = await authAPI.login({ email: fields.email, password: fields.password });
       localStorage.setItem("token", data.token);
       localStorage.setItem("userRole", data.user.role.toLowerCase());
       localStorage.setItem("userName", data.user.name);
@@ -25,73 +76,108 @@ export default function LoginPage() {
     } finally { setLoading(false); }
   };
 
+  const inputStyle = (name) => ({
+    ...S.input,
+    borderColor: fieldErrors[name] ? "#ef4444" : focused === name ? "#0ea5e9" : "#e2e8f0",
+    boxShadow: fieldErrors[name] ? "0 0 0 3px rgba(239,68,68,0.1)" : focused === name ? "0 0 0 3px rgba(14,165,233,0.12)" : "none",
+    background: focused === name ? "#fff" : "#f8fafc",
+  });
+
   return (
-    <div className="min-h-screen flex">
-      <div className="hidden lg:flex lg:w-1/2 relative overflow-hidden">
-        <img src="https://images.unsplash.com/photo-1573164713988-8665fc963095?auto=format&fit=crop&q=80&w=1200" alt="bg" className="w-full h-full object-cover"/>
-        <div className="absolute inset-0 bg-gradient-to-br from-slate-950/90 via-sky-900/50 to-slate-950/70"/>
-        <div className="absolute inset-0 flex flex-col justify-center px-14 text-white">
-          <div className="inline-flex items-center gap-2 bg-white/10 backdrop-blur-sm border border-white/20 px-4 py-2 rounded-full text-sm font-bold w-max mb-8"><Trophy size={16} className="text-yellow-300"/>EventHub RKU Platform</div>
-          <h2 className="text-5xl font-black leading-tight mb-5">Build. Compete.<br/><span className="gradient-text">Win Together.</span></h2>
-          <p className="text-slate-300 font-medium leading-relaxed max-w-sm text-lg">Sign in to track your events, manage your team, and compete in India's best hackathons.</p>
-          <div className="mt-10 flex gap-8">
-            {["120+ Events","4,800+ Teams","₹25L+ Prizes"].map(s=>(
-              <div key={s} className="text-center">
-                <p className="font-black text-white text-lg">{s.split(" ")[0]}</p>
-                <p className="text-slate-400 text-xs font-medium">{s.split(" ").slice(1).join(" ")}</p>
+    <div style={S.page}>
+      {/* Left panel */}
+      <div style={{ ...S.panel, display: window.innerWidth < 1024 ? "none" : "block" }}>
+        <img src="https://images.unsplash.com/photo-1573164713988-8665fc963095?auto=format&fit=crop&q=80&w=1200" alt="bg" style={S.panelImg} />
+        <div style={S.panelOverlay} />
+        <div style={S.panelContent}>
+          <div style={S.badge}><Trophy size={15} style={{ color:"#fde047" }} /> EventHub RKU Platform</div>
+          <h2 style={S.h2}>Build. Compete.<br /><span style={S.gradText}>Win Together.</span></h2>
+          <p style={S.subText}>Sign in to track your events, manage your team, and compete in India's best hackathons.</p>
+          <div style={S.statsRow}>
+            {[["120+","Events"],["4,800+","Teams"],["₹25L+","Prizes"]].map(([v,l]) => (
+              <div key={l} style={S.statItem}>
+                <p style={S.statVal}>{v}</p>
+                <p style={S.statLbl}>{l}</p>
               </div>
             ))}
           </div>
         </div>
       </div>
 
-      <div className="w-full lg:w-1/2 flex flex-col justify-center py-12 px-8 md:px-16 bg-white">
-        <div className="w-full max-w-md mx-auto">
-          <Link to="/" className="inline-flex items-center gap-3 mb-10 group">
-            <div className="bg-gradient-to-br from-sky-500 to-violet-600 p-2.5 rounded-xl text-white shadow-lg group-hover:scale-105 transition-transform"><Trophy size={20}/></div>
-            <span className="font-black text-xl text-slate-900">EventHub</span>
-          </Link>
-          <h1 className="text-3xl font-black text-slate-900 mb-2 tracking-tight">Welcome back 👋</h1>
-          <p className="text-slate-500 font-medium mb-8">Don't have an account? <Link to="/register" className="font-bold text-sky-500 hover:underline">Register now</Link></p>
+      {/* Right panel */}
+      <div style={S.right}>
+        <Link to="/" style={S.logo}>
+          <div style={S.logoIcon}><Trophy size={20} /></div>
+          <span style={S.logoText}>EventHub</span>
+        </Link>
 
-          {/* Demo credentials */}
-          <div className="bg-sky-50 border border-sky-200 rounded-2xl p-4 mb-6 relative overflow-hidden">
-            <div className="absolute top-0 left-0 w-1 h-full bg-sky-500 rounded-l-2xl"/>
-            <div className="flex gap-3 pl-2">
-              <Info className="text-sky-500 shrink-0 mt-0.5" size={17}/>
-              <div className="text-sm">
-                <p className="font-bold text-sky-900 mb-2">Demo Credentials</p>
-                <div className="space-y-1 text-xs font-medium text-sky-800">
-                  <p><span className="font-bold">Admin:</span> admin@eventhub.com / admin123</p>
-                  <p><span className="font-bold">Organizer:</span> organizer@eventhub.com / org123</p>
-                  <p><span className="font-bold">Participant:</span> participant@eventhub.com / part123</p>
-                </div>
-              </div>
+        <h1 style={S.h1}>Welcome back 👋</h1>
+        <p style={S.sub}>Don't have an account? <Link to="/register" style={S.link}>Register now</Link></p>
+
+        {/* Demo credentials */}
+        <div style={S.demoBox}>
+          <div style={S.demoBar} />
+          <div style={S.demoInner}>
+            <Info size={16} style={{ color:"#0ea5e9", flexShrink:0, marginTop:2 }} />
+            <div>
+              <p style={S.demoTitle}>Demo Credentials</p>
+              <p style={S.demoRow}><strong>Admin:</strong> admin@eventhub.com / admin123</p>
+              <p style={S.demoRow}><strong>Organizer:</strong> organizer@eventhub.com / org123</p>
+              <p style={S.demoRow}><strong>Participant:</strong> participant@eventhub.com / part123</p>
             </div>
           </div>
-
-          {error && (
-            <div className="flex items-center gap-2 bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-xl mb-5 text-sm font-medium">
-              <AlertCircle size={16}/> {error}
-            </div>
-          )}
-
-          <motion.form initial={{opacity:0,y:10}} animate={{opacity:1,y:0}} className="space-y-5" onSubmit={submit}>
-            <div>
-              <label className="label">Email address</label>
-              <div className="relative"><Mail className="absolute left-3.5 top-3.5 text-slate-400" size={16}/><input name="email" type="email" required className="input pl-10" placeholder="you@eventhub.com"/></div>
-            </div>
-            <div>
-              <label className="label">Password</label>
-              <div className="relative"><Lock className="absolute left-3.5 top-3.5 text-slate-400" size={16}/><input name="password" type="password" required className="input pl-10" placeholder="••••••••"/></div>
-            </div>
-            <button type="submit" disabled={loading} className="w-full flex justify-center items-center gap-2 py-3.5 px-6 rounded-xl font-bold text-white bg-gradient-to-r from-sky-500 to-violet-600 shadow-lg shadow-sky-500/25 hover:shadow-sky-500/40 hover:-translate-y-0.5 transition-all disabled:opacity-60 disabled:cursor-not-allowed disabled:transform-none mt-2">
-              {loading ? <><Loader2 size={18} className="animate-spin"/> Signing in...</> : <>Sign in <ArrowRight size={18}/></>}
-            </button>
-            <div className="relative my-4 flex items-center gap-3"><div className="flex-1 h-px bg-slate-200"/><span className="text-xs font-bold text-slate-400 uppercase">or</span><div className="flex-1 h-px bg-slate-200"/></div>
-            <Link to="/dashboard" className="w-full flex justify-center items-center gap-2 py-3 px-6 rounded-xl font-bold text-slate-700 border border-slate-200 bg-slate-50 hover:bg-slate-100 transition-all">Continue as Guest →</Link>
-          </motion.form>
         </div>
+
+        {error && (
+          <div style={S.errBox}>
+            <AlertCircle size={16} /> {error}
+          </div>
+        )}
+
+        <form onSubmit={submit} noValidate>
+          <div style={S.field}>
+            <label style={S.label}>Email address</label>
+            <div style={S.inputWrap}>
+              <Mail size={16} style={S.inputIcon} />
+              <input name="email" type="email" placeholder="you@eventhub.com"
+                value={fields.email}
+                onChange={e => { setFields(f=>({...f,email:e.target.value})); setFieldErrors(fe=>({...fe,email:""})); }}
+                style={inputStyle("email")}
+                onFocus={() => setFocused("email")}
+                onBlur={() => setFocused("")} />
+            </div>
+            {fieldErrors.email && <p style={{ color:"#ef4444", fontSize:12, marginTop:4, fontWeight:500 }}>{fieldErrors.email}</p>}
+          </div>
+          <div style={S.field}>
+            <label style={S.label}>Password</label>
+            <div style={S.inputWrap}>
+              <Lock size={16} style={S.inputIcon} />
+              <input name="password" type="password" placeholder="••••••••"
+                value={fields.password}
+                onChange={e => { setFields(f=>({...f,password:e.target.value})); setFieldErrors(fe=>({...fe,password:""})); }}
+                style={inputStyle("password")}
+                onFocus={() => setFocused("password")}
+                onBlur={() => setFocused("")} />
+            </div>
+            {fieldErrors.password && <p style={{ color:"#ef4444", fontSize:12, marginTop:4, fontWeight:500 }}>{fieldErrors.password}</p>}
+          </div>
+
+          <button type="submit" disabled={loading} style={{ ...S.btn, opacity: loading ? 0.7 : 1, cursor: loading ? "not-allowed" : "pointer" }}
+            onMouseEnter={e => { if (!loading) { e.currentTarget.style.transform = "translateY(-1px)"; e.currentTarget.style.boxShadow = "0 6px 24px rgba(14,165,233,0.45)"; } }}
+            onMouseLeave={e => { e.currentTarget.style.transform = "translateY(0)"; e.currentTarget.style.boxShadow = "0 4px 20px rgba(14,165,233,0.3)"; }}>
+            {loading ? <><Loader2 size={18} style={{ animation:"spin 1s linear infinite" }} /> Signing in...</> : <>Sign in <ArrowRight size={18} /></>}
+          </button>
+
+          <div style={S.divider}>
+            <div style={S.divLine} /><span style={S.divText}>or</span><div style={S.divLine} />
+          </div>
+
+          <Link to="/dashboard" style={S.guestBtn}
+            onMouseEnter={e => e.currentTarget.style.background = "#f1f5f9"}
+            onMouseLeave={e => e.currentTarget.style.background = "#f8fafc"}>
+            Continue as Guest →
+          </Link>
+        </form>
       </div>
     </div>
   );
