@@ -2,7 +2,6 @@
 # 🏆 EventHub: Dynamic Event & Hackathon Management Portal
 **Project Status:** `Checkpoint 1 - Architecture & Skeleton (T+4)`  
 **Theme:** RKU-Inspired Academic Operations  
-**Team:** [Your Team Name]
 
 ## 🎯 1. Problem Understanding & Scope
 We chose the **Event & Hackathon Management Mini-Portal** problem statement. Academic environments require a tool that isn't just a hackathon tracker, but a **Dynamic Event Engine**. Whether it is a code-sprint (requiring teams and scoring) or a seminar (requiring individual RSVP), the system must adapt. 
