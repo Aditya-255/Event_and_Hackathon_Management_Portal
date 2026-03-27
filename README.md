@@ -7,6 +7,9 @@
 ## 🎯 1. Problem Understanding & Scope
 We chose the **Event & Hackathon Management Mini-Portal** problem statement. Academic environments require a tool that isn't just a hackathon tracker, but a **Dynamic Event Engine**. Whether it is a code-sprint (requiring teams and scoring) or a seminar (requiring individual RSVP), the system must adapt. 
 
+### 🔄 Dynamic User Flow
+![EventHub User Flow](./User%20Flow.png)
+
 ### The 4 Mission-Critical Flows:
 1.  **Unique Team Registration Event:** Handling name-uniqueness and member limits via PostgreSQL level `UNIQUE` constraints.
 2.  **Project Submission Event:** A secure gateway for teams to submit titles and GitHub URLs before the "T+24 Code Freeze."
