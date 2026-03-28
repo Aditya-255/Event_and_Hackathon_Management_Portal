@@ -22,6 +22,8 @@ router.get('/', async (_req, res) => {
 
 // GET /api/leaderboard/event/:eventId
 router.get('/event/:eventId', async (req, res) => {
+  const eventId = parseInt(req.params.eventId);
+  if (isNaN(eventId)) return res.status(400).json({ error: 'Invalid event ID' });
   try {
     const { rows } = await pool.query(`
       SELECT
@@ -33,7 +35,7 @@ router.get('/event/:eventId', async (req, res) => {
       LEFT JOIN events e ON e.id = t.event_id
       WHERE t.event_id = $1 AND t.status = 'Evaluated' AND t.score IS NOT NULL
       ORDER BY t.score DESC NULLS LAST
-    `, [req.params.eventId]);
+    `, [eventId]);
     res.json(rows);
   } catch (err) { res.status(500).json({ error: err.message }); }
 });
