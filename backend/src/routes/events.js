@@ -28,6 +28,8 @@ router.get('/', async (req, res) => {
 
 // GET /api/events/:id
 router.get('/:id', async (req, res) => {
+  const id = parseInt(req.params.id);
+  if (isNaN(id)) return res.status(400).json({ error: 'Invalid event ID' });
   try {
     const { rows } = await pool.query(`
       SELECT e.*, u.name AS organizer_name,
@@ -35,7 +37,7 @@ router.get('/:id', async (req, res) => {
       FROM events e
       LEFT JOIN users u ON u.id = e.organizer_id
       WHERE e.id = $1
-    `, [req.params.id]);
+    `, [id]);
     if (!rows.length) return res.status(404).json({ error: 'Event not found' });
     res.json(rows[0]);
   } catch (err) { res.status(500).json({ error: err.message }); }
