@@ -4,6 +4,8 @@ const { authenticate, authorize } = require('../middleware/auth');
 
 // GET /api/scores/team/:teamId
 router.get('/team/:teamId', authenticate, async (req, res) => {
+  const teamId = parseInt(req.params.teamId);
+  if (isNaN(teamId)) return res.status(400).json({ error: 'Invalid team ID' });
   try {
     const { rows } = await pool.query(`
       SELECT s.*, u.name AS judge_name, a.project_name
@@ -12,7 +14,7 @@ router.get('/team/:teamId', authenticate, async (req, res) => {
       LEFT JOIN abstracts a ON a.id = s.abstract_id
       WHERE s.team_id = $1
       ORDER BY s.created_at DESC
-    `, [req.params.teamId]);
+    `, [teamId]);
     res.json(rows);
   } catch (err) { res.status(500).json({ error: err.message }); }
 });
