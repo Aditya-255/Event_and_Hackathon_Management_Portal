@@ -96,9 +96,9 @@ router.get('/stats', async (_req, res) => {
 });
 
 // GET /api/admin/settings
-router.get('/settings', async (req, res) => {
+router.get('/settings', async (_req, res) => {
   try {
-    const { rows } = await pool.query('SELECT key, value FROM settings');
+    const { rows } = await pool.query('SELECT key, value FROM settings ORDER BY key');
     const settings = Object.fromEntries(rows.map(r => [r.key, r.value === 'true']));
     res.json(settings);
   } catch (err) { res.status(500).json({ error: err.message }); }
