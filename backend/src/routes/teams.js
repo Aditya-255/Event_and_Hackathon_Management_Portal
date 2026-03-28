@@ -45,6 +45,8 @@ router.get('/:id', authenticate, async (req, res) => {
 router.post('/register', authenticate, authorize('participant', 'admin'), async (req, res) => {
   const { event_id, team_name, members, tier } = req.body;
   if (!event_id || !team_name) return res.status(400).json({ error: 'event_id and team_name are required' });
+  if (team_name.trim().length < 2) return res.status(400).json({ error: 'Team name must be at least 2 characters' });
+  if (members && (members < 1 || members > 6)) return res.status(400).json({ error: 'Team size must be between 1 and 6' });
   try {
     const evRes = await pool.query('SELECT id, status, max_teams FROM events WHERE id = $1', [event_id]);
     if (!evRes.rows.length) return res.status(404).json({ error: 'Event not found' });
@@ -54,9 +56,12 @@ router.post('/register', authenticate, authorize('participant', 'admin'), async 
     const countRes = await pool.query('SELECT COUNT(*) FROM teams WHERE event_id = $1', [event_id]);
     if (parseInt(countRes.rows[0].count) >= ev.max_teams)
       return res.status(400).json({ error: 'Event is full' });
+    // Check if user already registered for this event
+    const dupRes = await pool.query('SELECT id FROM teams WHERE captain_id=$1 AND event_id=$2', [req.user.id, event_id]);
+    if (dupRes.rows.length) return res.status(409).json({ error: 'You have already registered a team for this event' });
     const { rows } = await pool.query(
       `INSERT INTO teams (name, captain_id, event_id, members, tier) VALUES ($1,$2,$3,$4,$5) RETURNING *`,
-      [team_name, req.user.id, event_id, members || 2, tier || 'Junior']
+      [team_name.trim(), req.user.id, event_id, members || 2, tier || 'Junior']
     );
     res.status(201).json(rows[0]);
   } catch (err) { res.status(500).json({ error: err.message }); }
