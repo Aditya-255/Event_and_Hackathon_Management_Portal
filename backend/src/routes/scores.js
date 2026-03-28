@@ -22,9 +22,10 @@ router.post('/', authenticate, authorize('admin', 'organizer', 'judge'), async (
   const { abstract_id, team_id, innovation_score, technical_score, business_score, presentation_score, comments } = req.body;
   if (!abstract_id || !team_id) return res.status(400).json({ error: 'abstract_id and team_id are required' });
 
-  // Validate score range
+  // Validate score range 0-10
   const scores = [innovation_score, technical_score, business_score, presentation_score];
-  if (scores.some(s => s < 0 || s > 10)) return res.status(400).json({ error: 'Scores must be between 0 and 10' });
+  if (scores.some(s => s === undefined || s === null)) return res.status(400).json({ error: 'All four scores are required' });
+  if (scores.some(s => isNaN(s) || s < 0 || s > 10)) return res.status(400).json({ error: 'Scores must be between 0 and 10' });
 
   try {
     const { rows } = await pool.query(
