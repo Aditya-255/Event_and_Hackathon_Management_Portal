@@ -63,6 +63,9 @@ router.put('/users/:id', async (req, res) => {
 
 // DELETE /api/admin/users/:id
 router.delete('/users/:id', async (req, res) => {
+  // Prevent admin from deleting themselves
+  if (parseInt(req.params.id) === req.user.id)
+    return res.status(400).json({ error: 'Cannot delete your own account' });
   try {
     const { rowCount } = await pool.query('DELETE FROM users WHERE id = $1', [req.params.id]);
     if (!rowCount) return res.status(404).json({ error: 'User not found' });
@@ -71,7 +74,7 @@ router.delete('/users/:id', async (req, res) => {
 });
 
 // GET /api/admin/stats
-router.get('/stats', async (req, res) => {
+router.get('/stats', async (_req, res) => {
   try {
     const [users, events, teams, abstracts] = await Promise.all([
       pool.query(`SELECT COUNT(*)::int AS total,
