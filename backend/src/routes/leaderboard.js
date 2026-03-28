@@ -2,7 +2,7 @@ const router = require('express').Router();
 const pool   = require('../db/pool');
 
 // GET /api/leaderboard  — global (all evaluated teams)
-router.get('/', async (req, res) => {
+router.get('/', async (_req, res) => {
   try {
     const { rows } = await pool.query(`
       SELECT
