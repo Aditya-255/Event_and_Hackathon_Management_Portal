@@ -28,6 +28,8 @@ router.get('/', authenticate, async (req, res) => {
 
 // GET /api/teams/:id
 router.get('/:id', authenticate, async (req, res) => {
+  const id = parseInt(req.params.id);
+  if (isNaN(id)) return res.status(400).json({ error: 'Invalid team ID' });
   try {
     const { rows } = await pool.query(`
       SELECT t.*, u.name AS captain_name, e.title AS event_title
@@ -35,7 +37,7 @@ router.get('/:id', authenticate, async (req, res) => {
       LEFT JOIN users u ON u.id = t.captain_id
       LEFT JOIN events e ON e.id = t.event_id
       WHERE t.id = $1
-    `, [req.params.id]);
+    `, [id]);
     if (!rows.length) return res.status(404).json({ error: 'Team not found' });
     res.json(rows[0]);
   } catch (err) { res.status(500).json({ error: err.message }); }
