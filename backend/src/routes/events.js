@@ -47,11 +47,13 @@ router.get('/:id', async (req, res) => {
 router.post('/', authenticate, authorize('admin', 'organizer'), async (req, res) => {
   const { title, description, category, status, start_date, end_date, location, image_url, prize, max_teams } = req.body;
   if (!title) return res.status(400).json({ error: 'Title is required' });
+  if (title.trim().length < 3) return res.status(400).json({ error: 'Title must be at least 3 characters' });
+  if (max_teams && (max_teams < 1 || max_teams > 500)) return res.status(400).json({ error: 'max_teams must be between 1 and 500' });
   try {
     const { rows } = await pool.query(
       `INSERT INTO events (title,description,category,status,start_date,end_date,location,image_url,prize,max_teams,organizer_id)
        VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11) RETURNING *`,
-      [title, description || null, category || 'Open', status || 'Draft',
+      [title.trim(), description || null, category || 'Open', status || 'Draft',
        start_date || null, end_date || null, location || null, image_url || null,
        prize || null, max_teams || 50, req.user.id]
     );
