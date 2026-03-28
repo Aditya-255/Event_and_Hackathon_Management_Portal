@@ -1,4 +1,4 @@
-const router = require('express').Router();
+﻿const router = require('express').Router();
 const bcrypt = require('bcryptjs');
 const pool   = require('../db/pool');
 const { authenticate, authorize } = require('../middleware/auth');
@@ -16,10 +16,11 @@ router.get('/users', async (req, res) => {
     params.push(`%${search}%`);
     q += ` AND (name ILIKE $${params.length} OR email ILIKE $${params.length})`;
   }
-  q += ' ORDER BY created_at DESC';
+  q += ' ORDER BY created_at DESC LIMIT 100';
   try {
     const { rows } = await pool.query(q, params);
-    res.json(rows);
+    const total = await pool.query('SELECT COUNT(*)::int AS c FROM users');
+    res.json({ users: rows, total: total.rows[0].c });
   } catch (err) { res.status(500).json({ error: err.message }); }
 });
 
@@ -118,3 +119,4 @@ router.put('/settings', async (req, res) => {
 });
 
 module.exports = router;
+
