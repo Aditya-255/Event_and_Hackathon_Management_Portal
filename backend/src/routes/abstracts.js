@@ -82,7 +82,8 @@ router.post('/', authenticate, authorize('participant', 'admin', 'organizer'), u
 router.put('/:id/status', authenticate, authorize('admin', 'organizer', 'judge'), async (req, res) => {
   const { status } = req.body;
   const valid = ['Pending', 'Under Review', 'Approved', 'Rejected', 'Evaluated'];
-  if (!valid.includes(status)) return res.status(400).json({ error: 'Invalid status' });
+  if (!status) return res.status(400).json({ error: 'Status is required' });
+  if (!valid.includes(status)) return res.status(400).json({ error: `Invalid status. Must be one of: ${valid.join(', ')}` });
   try {
     const { rows } = await pool.query(
       `UPDATE abstracts SET status=$1, updated_at=NOW() WHERE id=$2 RETURNING *`,
